@@ -180,5 +180,4 @@ GitHub: [kunwaranshumaan](https://github.com/kunwaranshumaan)
 
 ---
 
-*This repository is an ongoing bioinformatics project. Results and workflow components will be updated as additional analysis stages are completed.*# yeast-genome-analysis-pipeline
-End-to-end NGS genome analysis pipeline for Saccharomyces cerevisiae, covering quality control, read trimming, genome alignment and variant calling.
+*This repository is an ongoing bioinformatics project. Results and workflow components will be updated as additional analysis stages are completed.*
