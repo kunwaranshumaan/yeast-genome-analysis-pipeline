@@ -254,3 +254,9 @@ __marimo__/
 *.tmp
 *.log
 *.parquet
+.venv/
+
+# Compressed reference genome files
+*.fna.gz
+*.fa.gz
+*.fasta.gz
