@@ -218,3 +218,38 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Raw sequencing data
+*.fastq
+*.fastq.gz
+*.fq
+*.fq.gz
+*.sra
+
+# Alignment files
+*.sam
+*.bam
+*.bai
+*.crai
+
+# Reference genome files
+*.fna
+*.fa
+*.fasta
+*.fai
+*.dict
+
+# Bowtie2 index files
+*.bt2
+*.bt2l
+
+# Other genome index files
+*.bwt
+*.pac
+*.ann
+*.amb
+*.sa
+
+# Temporary and log files
+*.tmp
+*.log

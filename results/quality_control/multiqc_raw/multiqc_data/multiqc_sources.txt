@@ -1,0 +1,3 @@
+Module	Section	Sample Name	Source
+FastQC	all_sections	SRR800775_1	/home/kunwaranshumaa/yeast-genome-analysis-pipeline/results/quality_control/raw_fastqc/SRR800775_1_fastqc.zip
+FastQC	all_sections	SRR800775_2	/home/kunwaranshumaa/yeast-genome-analysis-pipeline/results/quality_control/raw_fastqc/SRR800775_2_fastqc.zip
