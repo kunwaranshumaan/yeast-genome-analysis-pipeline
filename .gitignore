@@ -253,3 +253,4 @@ __marimo__/
 # Temporary and log files
 *.tmp
 *.log
+*.parquet
