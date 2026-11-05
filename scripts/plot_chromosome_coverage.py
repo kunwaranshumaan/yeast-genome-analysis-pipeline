@@ -1,16 +1,22 @@
+from pathlib import Path
+
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# Input and output files
-input_file = "results/quality_control/alignment/SRR800775_coverage.txt"
-output_file = "results/figures/chromosome_coverage.png"
 
-# Read SAMtools coverage output
+input_file = Path(
+    "results/quality_control/alignment/SRR800775_coverage.txt"
+)
+output_file = Path("results/figures/chromosome_coverage.png")
+
 columns = [
     "chromosome", "start", "end", "numreads",
     "covbases", "coverage", "meandepth",
     "meanbaseq", "meanmapq"
 ]
+
+if not input_file.is_file():
+    raise FileNotFoundError(f"Coverage file not found: {input_file}")
 
 df = pd.read_csv(
     input_file,
@@ -19,13 +25,26 @@ df = pd.read_csv(
     names=columns
 )
 
-# Separate nuclear chromosomes from mitochondrial genome
+if df.empty:
+    raise ValueError("Coverage file contains no data.")
+
+if df["chromosome"].duplicated().any():
+    raise ValueError("Duplicate chromosome entries found.")
+
 nuclear = df[df["chromosome"] != "NC_001224.1"].copy()
 
-# Extract chromosome number for plotting
+if len(nuclear) != 16:
+    raise ValueError(
+        f"Expected 16 nuclear chromosomes, found {len(nuclear)}."
+    )
+
+if not pd.to_numeric(nuclear["meandepth"], errors="coerce").notna().all():
+    raise ValueError("Invalid mean-depth values detected.")
+
 nuclear["chromosome_number"] = range(1, len(nuclear) + 1)
 
-# Plot mean depth
+output_file.parent.mkdir(parents=True, exist_ok=True)
+
 plt.figure(figsize=(12, 6))
 
 plt.bar(

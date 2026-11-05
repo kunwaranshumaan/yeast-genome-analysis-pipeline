@@ -1,8 +1,9 @@
+from pathlib import Path
 import pysam
 
 bam_files = {
-    "RAW": "results/alignment/duplicate_marked/raw/SRR800775_raw_markdup.bam",
-    "TRIMMED": "results/alignment/duplicate_marked/trimmed/SRR800775_trimmed_markdup.bam"
+    "RAW": Path("results/alignment/duplicate_marked/raw/SRR800775_raw_markdup.bam"),
+    "TRIMMED": Path("results/alignment/duplicate_marked/trimmed/SRR800775_trimmed_markdup.bam")
 }
 
 candidates = [
@@ -13,11 +14,19 @@ candidates = [
 thresholds = [0, 20, 30, 40]
 
 for dataset, bam_path in bam_files.items():
-    print(f"\n========== {dataset} ==========")
+
+    if not bam_path.is_file():
+        raise FileNotFoundError(f"BAM file not found: {bam_path}")
 
     with pysam.AlignmentFile(bam_path, "rb") as bam:
 
+        if not bam.has_index():
+            raise FileNotFoundError(f"BAM index missing: {bam_path}.bai")
+
+        print(f"\n========== {dataset} ==========")
+
         for chrom, pos, ref, alt in candidates:
+
             counts = {
                 threshold: {ref: 0, alt: 0}
                 for threshold in thresholds
@@ -35,22 +44,21 @@ for dataset, bam_path in bam_files.items():
                 ):
                     continue
 
-                positions = read.get_reference_positions(full_length=True)
+                for query_pos, ref_pos in read.get_aligned_pairs():
 
-                try:
-                    index = positions.index(pos - 1)
-                except ValueError:
-                    continue
+                    if ref_pos == pos - 1 and query_pos is not None:
 
-                base = read.query_sequence[index].upper()
-                quality = read.query_qualities[index]
+                        base = read.query_sequence[query_pos].upper()
+                        quality = read.query_qualities[query_pos]
 
-                if quality < 20 or base not in (ref, alt):
-                    continue
+                        if quality < 20 or base not in (ref, alt):
+                            break
 
-                for threshold in thresholds:
-                    if read.mapping_quality >= threshold:
-                        counts[threshold][base] += 1
+                        for threshold in thresholds:
+                            if read.mapping_quality >= threshold:
+                                counts[threshold][base] += 1
+
+                        break
 
             print(f"\n{chrom}:{pos} {ref}>{alt}")
 

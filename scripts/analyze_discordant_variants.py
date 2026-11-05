@@ -10,38 +10,68 @@ files = {
     "TRIMMED_ONLY": base / "trimmed_only.tsv"
 }
 
+columns = ["CHROM", "POS", "REF", "ALT", "QUAL", "DP", "AD"]
+
+
+def classify_variant(row):
+    ref = row["REF"]
+    alt = row["ALT"]
+
+    if pd.isna(ref) or pd.isna(alt) or not ref or not alt:
+        return "Invalid"
+
+    if len(ref) == 1 and len(alt) == 1:
+        return "SNP"
+    elif len(ref) < len(alt):
+        return "Insertion"
+    elif len(ref) > len(alt):
+        return "Deletion"
+
+    return "Complex"
+
+
 for dataset, filepath in files.items():
+
+    if not filepath.is_file():
+        raise FileNotFoundError(f"Input file not found: {filepath}")
 
     df = pd.read_csv(
         filepath,
         sep="\t",
         header=None,
-        names=["CHROM", "POS", "REF", "ALT", "QUAL", "DP", "AD"]
+        names=columns,
+        dtype={"CHROM": str, "REF": str, "ALT": str, "AD": str}
     )
 
-    df["POS"] = pd.to_numeric(df["POS"], errors="coerce")
-    df["QUAL"] = pd.to_numeric(df["QUAL"], errors="coerce")
-    df["DP"] = pd.to_numeric(df["DP"], errors="coerce")
+    if df.empty:
+        raise ValueError(f"{dataset} contains no variant records.")
+
+    if df.isna().any().any():
+        raise ValueError(f"Missing values detected in {dataset}.")
+
+    for column in ["POS", "QUAL", "DP"]:
+        df[column] = pd.to_numeric(df[column], errors="coerce")
+
+        if df[column].isna().any():
+            raise ValueError(f"Invalid numeric values in {dataset}: {column}")
+
+    if (df["POS"] < 1).any() or (df["DP"] < 0).any():
+        raise ValueError(f"Invalid position or depth values in {dataset}.")
 
     df["REF"] = df["REF"].str.upper()
     df["ALT"] = df["ALT"].str.upper()
 
-    def classify_variant(row):
-        ref = row["REF"]
-        alt = row["ALT"]
-
-        if len(ref) == 1 and len(alt) == 1:
-            return "SNP"
-        elif len(ref) < len(alt):
-            return "Insertion"
-        elif len(ref) > len(alt):
-            return "Deletion"
-        return "Complex"
-
     df["TYPE"] = df.apply(classify_variant, axis=1)
 
-    ad_lengths = df["AD"].fillna("").apply(
-        lambda x: len(x.split(",")) if x else 0
+    if (df["TYPE"] == "Invalid").any():
+        raise ValueError(f"Invalid REF/ALT alleles detected in {dataset}.")
+
+    ad_lengths = df["AD"].apply(
+        lambda x: len(x.split(","))
+    )
+
+    ad_sums = df["AD"].apply(
+        lambda x: sum(int(v) for v in x.split(","))
     )
 
     print("\n" + "=" * 55)
@@ -68,16 +98,9 @@ for dataset, filepath in files.items():
     print(ad_lengths.value_counts().sort_index().to_string())
 
     print("\nAD sum versus DP:")
-    ad_sums = df["AD"].fillna("").apply(
-        lambda x: sum(int(v) for v in x.split(",") if v.isdigit())
-        if x else None
-    )
-
-    comparable = ad_sums.notna() & df["DP"].notna()
-
     print(
         "Records where AD sum differs from DP:",
-        (ad_sums[comparable] != df.loc[comparable, "DP"]).sum()
+        (ad_sums != df["DP"]).sum()
     )
 
     print("\nMedian DP by variant type:")
@@ -85,4 +108,3 @@ for dataset, filepath in files.items():
 
     print("\nMedian QUAL by variant type:")
     print(df.groupby("TYPE")["QUAL"].median().to_string())
-

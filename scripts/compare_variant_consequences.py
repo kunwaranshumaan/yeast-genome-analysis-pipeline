@@ -1,31 +1,49 @@
-import subprocess
 import csv
+import subprocess
 from collections import Counter
 from pathlib import Path
 
 files = {
-    ("RAW", "Nuclear"): "results/variants/annotation/full/raw_nuclear_annotated.vcf",
-    ("TRIMMED", "Nuclear"): "results/variants/annotation/full/trimmed_nuclear_annotated.vcf",
-    ("RAW", "Mitochondrial"): "results/variants/annotation/full/raw_mito_annotated.vcf",
-    ("TRIMMED", "Mitochondrial"): "results/variants/annotation/full/trimmed_mito_annotated.vcf",
+    ("RAW", "Nuclear"): Path(
+        "results/variants/annotation/full/raw_nuclear_annotated.vcf"
+    ),
+    ("TRIMMED", "Nuclear"): Path(
+        "results/variants/annotation/full/trimmed_nuclear_annotated.vcf"
+    ),
+    ("RAW", "Mitochondrial"): Path(
+        "results/variants/annotation/full/raw_mito_annotated.vcf"
+    ),
+    ("TRIMMED", "Mitochondrial"): Path(
+        "results/variants/annotation/full/trimmed_mito_annotated.vcf"
+    ),
 }
 
 output_dir = Path("results/variants/annotation/comparison")
 output_dir.mkdir(parents=True, exist_ok=True)
 
 summary = []
+category_rows = []
 
 for (dataset, genome), filename in files.items():
+
+    if not filename.is_file():
+        raise FileNotFoundError(f"Input VCF not found: {filename}")
+
     result = subprocess.run(
-        ["bcftools", "query", "-f", "%INFO/BCSQ\n", filename],
-        capture_output=True, text=True, check=True
+        ["bcftools", "query", "-f", "%INFO/BCSQ\n", str(filename)],
+        capture_output=True,
+        text=True,
+        check=True
     )
 
-    total = annotated = unannotated = 0
+    total = 0
+    annotated = 0
+    unannotated = 0
+
     record_counts = Counter()
     annotation_counts = Counter()
 
-    for line in result.stdout.splitlines():
+    for line_number, line in enumerate(result.stdout.splitlines(), start=1):
         total += 1
         bcsq = line.strip()
 
@@ -33,16 +51,29 @@ for (dataset, genome), filename in files.items():
             unannotated += 1
             continue
 
-        annotated += 1
-        record_categories = set()
+        consequences = []
 
         for item in bcsq.split(","):
-            consequence = item.split("|")[0]
-            annotation_counts[consequence] += 1
-            record_categories.add(consequence)
+            if "|" not in item:
+                raise ValueError(
+                    f"Malformed BCSQ annotation in {filename}, "
+                    f"query line {line_number}: {item}"
+                )
 
-        for consequence in record_categories:
-            record_counts[consequence] += 1
+            consequence = item.split("|", 1)[0]
+
+            if not consequence:
+                raise ValueError(
+                    f"Missing consequence in {filename}, "
+                    f"query line {line_number}"
+                )
+
+            consequences.append(consequence)
+
+        annotated += 1
+
+        annotation_counts.update(consequences)
+        record_counts.update(set(consequences))
 
     summary.append({
         "dataset": dataset,
@@ -50,45 +81,14 @@ for (dataset, genome), filename in files.items():
         "total_records": total,
         "annotated_records": annotated,
         "unannotated_records": unannotated,
-        "annotated_percent": round(100 * annotated / total, 2) if total else 0
+        "annotated_percent": (
+            round(100 * annotated / total, 2) if total else 0
+        )
     })
 
-    for consequence in sorted(set(record_counts) | set(annotation_counts)):
-        summary_row = {
-            "dataset": dataset,
-            "genome": genome,
-            "consequence": consequence,
-            "records": record_counts[consequence],
-            "annotations": annotation_counts[consequence]
-        }
-        category_rows.append(summary_row) if "category_rows" in globals() else None
-
-# Rebuild category rows in a separate pass for clarity
-category_rows = []
-
-for (dataset, genome), filename in files.items():
-    result = subprocess.run(
-        ["bcftools", "query", "-f", "%INFO/BCSQ\n", filename],
-        capture_output=True, text=True, check=True
-    )
-
-    record_counts = Counter()
-    annotation_counts = Counter()
-
-    for line in result.stdout.splitlines():
-        bcsq = line.strip()
-        if not bcsq or bcsq == ".":
-            continue
-
-        record_categories = set()
-        for item in bcsq.split(","):
-            consequence = item.split("|")[0]
-            annotation_counts[consequence] += 1
-            record_categories.add(consequence)
-
-        record_counts.update(record_categories)
-
-    for consequence in sorted(set(record_counts) | set(annotation_counts)):
+    for consequence in sorted(
+        set(record_counts) | set(annotation_counts)
+    ):
         category_rows.append({
             "dataset": dataset,
             "genome": genome,
@@ -97,17 +97,43 @@ for (dataset, genome), filename in files.items():
             "annotations": annotation_counts[consequence]
         })
 
-with open(output_dir / "raw_vs_trimmed_annotation_summary.csv", "w", newline="") as f:
-    writer = csv.DictWriter(f, fieldnames=summary[0].keys())
+summary_fields = [
+    "dataset",
+    "genome",
+    "total_records",
+    "annotated_records",
+    "unannotated_records",
+    "annotated_percent"
+]
+
+category_fields = [
+    "dataset",
+    "genome",
+    "consequence",
+    "records",
+    "annotations"
+]
+
+with open(
+    output_dir / "raw_vs_trimmed_annotation_summary.csv",
+    "w",
+    newline=""
+) as f:
+    writer = csv.DictWriter(f, fieldnames=summary_fields)
     writer.writeheader()
     writer.writerows(summary)
 
-with open(output_dir / "raw_vs_trimmed_consequence_categories.csv", "w", newline="") as f:
-    writer = csv.DictWriter(f, fieldnames=category_rows[0].keys())
+with open(
+    output_dir / "raw_vs_trimmed_consequence_categories.csv",
+    "w",
+    newline=""
+) as f:
+    writer = csv.DictWriter(f, fieldnames=category_fields)
     writer.writeheader()
     writer.writerows(category_rows)
 
 print("Comparison files generated successfully.")
+
 print("\nDataset summary:")
 for row in summary:
     print(row)
