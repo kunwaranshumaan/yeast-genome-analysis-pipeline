@@ -260,3 +260,36 @@ __marimo__/
 *.fna.gz
 *.fa.gz
 *.fasta.gz
+
+# Large sequencing data and generated analysis files
+data/
+results/alignment/
+results/variants/
+results/quality_control/raw_fastqc/
+results/quality_control/trimmed_fastqc/
+results/quality_control/alignment/raw_chrXV_local_depth.tsv
+results/quality_control/alignment/trimmed_chrXV_local_depth.tsv
+
+# Bioinformatics data formats
+*.sra
+*.fastq
+*.fastq.gz
+*.fq
+*.fq.gz
+*.sam
+*.bam
+*.bai
+*.cram
+*.crai
+*.vcf
+*.vcf.gz
+*.bcf
+*.tbi
+*.fai
+*.bt2
+*.bt2l
+
+# Exclude duplicate trimmed MultiQC report and internal data
+results/quality_control/multiqc_trimmed/multiqc_report.html
+results/quality_control/multiqc_trimmed/multiqc_data/
+results/quality_control/multiqc_trimmed/multiqc_data_1/

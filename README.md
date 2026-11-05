@@ -1,12 +1,12 @@
-# End-to-End NGS Genome Analysis Pipeline of *Saccharomyces cerevisiae* YJM451
+# End-to-End Whole-Genome Sequencing Analysis Pipeline of *Saccharomyces cerevisiae* YJM451
 
 ## Project Overview
 
-This project aims to perform an end-to-end analysis of whole-genome sequencing (WGS) data from *Saccharomyces cerevisiae* strain YJM451 using the S288C reference genome.
+An end-to-end bioinformatics workflow for analysing paired-end whole-genome sequencing (WGS) data from *Saccharomyces cerevisiae* strain YJM451 against the S288C reference genome.
 
-The workflow includes raw sequencing quality assessment, reference genome preparation, paired-end read alignment, alignment quality assessment, and chromosome-wise sequencing coverage visualization.
+The project covers raw-read quality control, adapter trimming, read alignment, alignment quality assessment, duplicate marking, variant calling, RAW-versus-TRIMMED comparisons, and functional consequence annotation.
 
-The project is being developed as a reproducible bioinformatics workflow using command-line tools and Python.
+The workflow combines established command-line bioinformatics tools with Python-based analysis and visualization.
 
 ## Dataset Information
 
@@ -19,125 +19,207 @@ The project is being developed as a reproducible bioinformatics workflow using c
 | Sequencing strategy | Whole-genome sequencing |
 | Library layout | Paired-end |
 | Read length | 101 bp |
-| Number of read pairs | 4,336,904 |
+| Initial read pairs | 4,336,904 |
 
-**Dataset source:** [NCBI Sequence Read Archive – SRR800775](https://www.ncbi.nlm.nih.gov/sra/SRR800775)
+Dataset: [NCBI SRA – SRR800775](https://www.ncbi.nlm.nih.gov/sra/SRR800775)
 
 ## Reference Genome
 
-- Organism: *Saccharomyces cerevisiae* S288C
-- Assembly accession: `GCF_000146045.2`
-- Assembly name: R64
-- Reference sequences: 16 nuclear chromosomes and one mitochondrial genome.
-- Total reference sequence length: 12,157,105 bp.
+| Parameter | Details |
+|---|---|
+| Reference strain | S288C |
+| Assembly accession | GCF_000146045.2 |
+| Assembly name | R64 |
+| Nuclear chromosomes | 16 |
+| Mitochondrial genome | 1 |
+| Total reference length | 12,157,105 bp |
 
-**Reference source:** [NCBI Assembly – GCF_000146045.2](https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_000146045.2/)
+Reference: [NCBI Assembly – GCF_000146045.2](https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_000146045.2/)
 
 ## Analysis Workflow
 
-### 1. Raw Read Quality Control
+### 1. Raw sequencing quality control
 
-Tools:
-- FastQC
-- MultiQC
+Tools: FastQC and MultiQC.
 
-Raw paired-end FASTQ files were assessed for:
+Quality assessment included:
 - Per-base sequence quality
-- GC content distribution
+- GC-content distribution
 - Sequence duplication
 - Adapter contamination
 - Sequence length distribution
 - Overrepresented sequences
 
-### 2. Reference Genome Preparation
+### 2. Read trimming
 
-The S288C reference genome was downloaded from NCBI and indexed using Bowtie2.
+Tool: fastp.
 
-A reference analysis script was developed in Python to calculate chromosome-wise sequence lengths.
+Paired-end reads were processed using adapter detection and trimming.
 
-### 3. Paired-End Read Alignment
+- Initial read pairs: 4,336,904
+- Retained read pairs: 3,947,176
+- Retention: 91.03%
+- Removed read pairs: approximately 8.97%
 
-Tool: Bowtie2
+Post-trimming quality was assessed using FastQC and MultiQC.
 
-YJM451 sequencing reads were aligned against the S288C reference genome using the sensitive alignment preset.
+### 3. Reference preparation and alignment
 
-**Overall alignment rate: 94.80%.**
+Tool: Bowtie2.
 
-### 4. Alignment Processing and Quality Assessment
+Reads were aligned against the S288C reference genome using the `--very-sensitive` preset.
 
-Tool: SAMtools
+| Alignment metric | RAW | TRIMMED |
+|---|---:|---:|
+| Overall alignment rate | 94.80% | 95.91% |
+| Properly paired reads | 97.15% | 97.96% |
 
-The alignment workflow included:
-- SAM-to-BAM conversion
-- Coordinate sorting
-- BAM indexing
+### 4. Alignment processing and quality assessment
+
+Tool: SAMtools.
+
+The workflow included:
+- BAM conversion and coordinate sorting
+- BAM indexing and integrity checks
 - Alignment statistics
-- Chromosome-wise mapping statistics
-- Coverage assessment
+- Chromosome-wise coverage assessment
+- Duplicate marking using `fixmate` and `markdup`
 
-### 5. Chromosome-wise Coverage Visualization
+Duplicate marking identified:
+- RAW: 154,800 duplicate records (approximately 1.88%)
+- TRIMMED: 120,515 duplicate records (approximately 1.59%)
 
-Python libraries:
-- Pandas
-- Matplotlib
+Duplicate marking flags duplicates; it does not remove them.
 
-Mean sequencing depth was calculated and visualized across the 16 nuclear chromosomes.
+### 5. Coverage analysis
 
-## Preliminary Results
+Chromosome-wise sequencing coverage and depth were assessed using SAMtools and Python.
 
-| Parameter | Result |
-|---|---:|
-| Overall Bowtie2 alignment rate | 94.80% |
-| Properly paired reads (SAMtools) | 97.15% |
-| Average read length | 101 bp |
-| Average base quality in BAM | 34.4 |
-| Average insert size | 278 bp |
-| Nuclear chromosome coverage | 96.35–99.96% |
-| Nuclear mean sequencing depth | 53.40–88.92× |
-| Mitochondrial mean sequencing depth | 1001.85× |
+The nuclear chromosomes showed broad reference coverage. The mitochondrial genome had substantially higher sequencing depth than the nuclear chromosomes.
 
-The mitochondrial genome showed substantially higher sequencing depth than the nuclear chromosomes. Chromosome XII also showed elevated mean depth and warrants further investigation.
+Chromosome XII also showed elevated depth and a high-depth region requiring cautious interpretation.
 
-## Repository Structure
+### 6. Variant calling
 
-```text
-yeast-genome-analysis-pipeline/
-│
-├── docs/
-│   └── quality_control_interpretation.md
-│
-├── results/
-│   ├── figures/
-│   │   └── chromosome_coverage.png
-│   └── quality_control/
-│       ├── raw_fastqc/
-│       ├── multiqc_raw/
-│       └── alignment/
-│
-├── scripts/
-│   ├── analyze_reference.py
-│   └── plot_chromosome_coverage.py
-│
-├── requirements.txt
-├── README.md
-└── .gitignore
-```
+Tool: BCFtools.
 
-Raw sequencing data, reference genome files, Bowtie2 indexes, and large alignment files are excluded from Git version control. They can be downloaded independently using the accessions and reference assembly listed above.
+SNPs and indels were called from duplicate-marked RAW and TRIMMED alignments.
+
+The corrected mpileup workflow used:
+- Mapping quality threshold: 20
+- Base quality threshold: 20
+- Maximum per-file depth for mpileup: 10,000
+- Maximum per-file depth for indel calling: 10,000
+
+Variant records were subsequently normalized, compared and filtered.
+
+### 7. RAW-versus-TRIMMED variant comparison
+
+The two call sets were compared to investigate the effect of read trimming on variant detection.
+
+The normalized call-set comparison showed:
+- Shared allele records: 61,319
+- RAW-only records: 191
+- TRIMMED-only records: 115
+- Union: 61,625
+- Jaccard similarity: 99.5034%
+
+Jaccard similarity describes overlap between the normalized call sets. It is not a measure of variant-calling accuracy, sensitivity or specificity.
+
+### 8. Functional consequence annotation
+
+Tool: BCFtools `csq`.
+
+The NCBI GFF annotation corresponding to the S288C reference assembly was used.
+
+Separate genetic codes were applied:
+- Nuclear genome: genetic code 1
+- Mitochondrial genome: genetic code 3
+
+The annotation workflow was run separately for RAW and TRIMMED datasets.
+
+#### Annotation summary
+
+| Dataset | Genome | Total records | Annotated | Unannotated |
+|---|---|---:|---:|---:|
+| RAW | Nuclear | 54,856 | 32,982 | 21,874 |
+| TRIMMED | Nuclear | 54,811 | 32,964 | 21,847 |
+| RAW | Mitochondrial | 505 | 86 | 419 |
+| TRIMMED | Mitochondrial | 503 | 85 | 418 |
+
+#### Major nuclear consequences
+
+| Consequence | RAW records | TRIMMED records |
+|---|---:|---:|
+| Synonymous | 21,203 | 21,194 |
+| Missense | 10,719 | 10,711 |
+| Intron | 513 | 513 |
+| Frameshift | 130 | 129 |
+| In-frame insertion | 121 | 121 |
+| In-frame deletion | 111 | 110 |
+| Stop gained | 28 | 28 |
+
+A variant may have multiple consequence annotations because of overlapping transcripts or features. Record counts and annotation counts are therefore reported separately in the detailed CSV output.
+
+## Selected Investigation: Chromosome XII rDNA Region
+
+Two candidate substitutions were investigated in the chromosome XII rDNA region:
+
+- NC_001144.5:460103 T>C
+- NC_001144.5:460152 T>G
+
+Both positions fall within the annotated NTS1-2 non-transcribed spacer.
+
+Read-level analyses identified differences in mapping-quality support between the candidates. The second candidate showed a more substantial reduction in alternate-allele support after applying stricter mapping-quality thresholds.
+
+These are unresolved repeat-associated candidate variants. They should not be treated as confirmed single-copy mutations because the yeast rDNA region is repetitive and may be incompletely represented in the reference assembly.
 
 ## Software and Tools
 
 - SRA Toolkit
 - FastQC
 - MultiQC
+- fastp
 - Bowtie2
 - SAMtools
+- BCFtools
 - Python
 - Pandas
 - Matplotlib
+- pysam
 - Git and GitHub
 
 Python dependencies are listed in `requirements.txt`.
+
+## Repository Structure
+
+```text
+yeast-genome-analysis-pipeline/
+├── data/
+│   ├── raw/
+│   ├── processed/
+│   └── reference/
+├── docs/
+│   ├── quality_control_interpretation.md
+│   └── variant_annotation_interpretation.md
+├── results/
+│   ├── alignment/
+│   ├── figures/
+│   ├── quality_control/
+│   └── variants/
+├── scripts/
+│   ├── analyze_discordant_variants.py
+│   ├── check_allele_mapping_quality.py
+│   ├── check_allele_read_support.py
+│   ├── check_paired_allele_agreement.py
+│   ├── compare_variant_consequences.py
+│   ├── investigate_discordant_depth.py
+│   ├── plot_chromosome_coverage.py
+│   └── plot_raw_vs_trimmed_coverage.py
+├── requirements.txt
+├── README.md
+└── LICENSE
+```
 
 ## Reproducibility
 
@@ -148,27 +230,23 @@ git clone https://github.com/kunwaranshumaan/yeast-genome-analysis-pipeline.git
 cd yeast-genome-analysis-pipeline
 ```
 
-Create and activate a Python virtual environment:
+Create a Python environment and install dependencies:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-```
-
-Install Python dependencies:
-
-```bash
 python -m pip install -r requirements.txt
 ```
 
-## Upcoming Work
+External bioinformatics tools must be installed separately.
 
-- Further investigation of GC-content distribution.
-- Investigation of elevated chromosome XII and mitochondrial coverage.
-- Read trimming and post-trimming quality assessment.
-- Variant calling using BCFtools.
-- Variant filtering and annotation.
-- Biological interpretation of genomic differences between YJM451 and S288C.
+## Limitations
+
+- Functional consequences are computational predictions, not experimental validation.
+- The variant-calling workflow used the default diploid assumption; sample ploidy was not independently established.
+- Unphased genotype handling does not establish biological haplotype phase.
+- Aggregate consequence counts do not identify individual variants gained or lost after trimming.
+- The repetitive rDNA region requires cautious interpretation.
 
 ## Author
 
@@ -177,7 +255,3 @@ python -m pip install -r requirements.txt
 M.Sc. Biotechnology | Bioinformatics and Molecular Biology
 
 GitHub: [kunwaranshumaan](https://github.com/kunwaranshumaan)
-
----
-
-*This repository is an ongoing bioinformatics project. Results and workflow components will be updated as additional analysis stages are completed.*
