@@ -193,22 +193,23 @@ Python dependencies are listed in `requirements.txt`.
 
 ## Repository Structure
 
+The GitHub repository contains analysis scripts, documentation, and selected quality-control and comparison outputs.
+
 ```text
 yeast-genome-analysis-pipeline/
-├── data/
-│   ├── raw/
-│   ├── processed/
-│   └── reference/
 ├── docs/
-│   ├── quality_control_interpretation.md
-│   └── variant_annotation_interpretation.md
+│   └── quality_control_interpretation.md
 ├── results/
-│   ├── alignment/
 │   ├── figures/
-│   ├── quality_control/
-│   └── variants/
+│   └── quality_control/
+│       ├── alignment/
+│       ├── fastp/
+│       ├── multiqc_raw/
+│       ├── multiqc_trimmed/
+│       └── raw_fastqc/
 ├── scripts/
 │   ├── analyze_discordant_variants.py
+│   ├── analyze_reference.py
 │   ├── check_allele_mapping_quality.py
 │   ├── check_allele_read_support.py
 │   ├── check_paired_allele_agreement.py
@@ -221,7 +222,21 @@ yeast-genome-analysis-pipeline/
 └── LICENSE
 ```
 
+**Local-only analysis directories:** `data/`, `results/alignment/`, and `results/variants/` contain raw sequencing data, reference files, intermediate alignment files, and variant outputs. These are excluded from GitHub using `.gitignore`.
+
 ## Reproducibility
+
+### Dataset and reference
+
+- **Sequencing dataset:** SRR800775
+- **Organism:** *Saccharomyces cerevisiae* YJM451
+- **Sequencing platform:** Illumina HiSeq 2000, paired-end reads
+- **Reference genome:** *S. cerevisiae* S288C, NCBI accession GCF_000146045.2_R64
+- **Reference annotation:** Corresponding NCBI GFF3 annotation
+
+Raw sequencing data, processed FASTQ files, reference files, BAM files, and VCF files are not included in this GitHub repository. Obtain the original dataset from the NCBI Sequence Read Archive and the reference genome and annotation from NCBI before reproducing the complete analysis.
+
+### Python environment
 
 Clone the repository:
 
@@ -230,15 +245,71 @@ git clone https://github.com/kunwaranshumaan/yeast-genome-analysis-pipeline.git
 cd yeast-genome-analysis-pipeline
 ```
 
-Create a Python environment and install dependencies:
+Create and activate a virtual environment:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
+python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-External bioinformatics tools must be installed separately.
+### External software
+
+The following command-line tools were used and must be installed separately:
+
+| Tool | Version | Purpose |
+|---|---:|---|
+| Bowtie2 | 2.5.4 | Read alignment |
+| SAMtools | 1.24 | BAM processing and coverage analysis |
+| BCFtools | 1.24 | Variant calling and functional annotation |
+| FastQC | 0.12.1 | Read quality assessment |
+| MultiQC | 1.35 | Aggregated quality-control reports |
+| fastp | 1.0.1 | Adapter trimming and read filtering |
+| SRA Toolkit | 3.2.1 | SRA data retrieval |
+
+Python 3.14.4 was used. Python package versions are pinned in `requirements.txt`.
+
+### Analysis scripts
+
+Run scripts from the repository root because input and output paths are defined relative to that directory. The scripts are analysis utilities, not a single automated workflow.
+
+| Script | Required input or dependency |
+|---|---|
+| `analyze_reference.py` | Reference FASTA |
+| `plot_chromosome_coverage.py` | Alignment coverage summary TXT |
+| `plot_raw_vs_trimmed_coverage.py` | Raw-versus-trimmed coverage CSV |
+| `analyze_discordant_variants.py` | Raw-only and trimmed-only discordant variant TSV files |
+| `investigate_discordant_depth.py` | Discordant variant TSV files |
+| `check_allele_mapping_quality.py` | Duplicate-marked RAW and TRIMMED BAM files; pysam |
+| `check_allele_read_support.py` | Duplicate-marked RAW and TRIMMED BAM files; pysam |
+| `check_paired_allele_agreement.py` | Duplicate-marked RAW and TRIMMED BAM files; pysam |
+| `compare_variant_consequences.py` | Four annotated VCF files; BCFtools |
+
+Example execution from the repository root:
+
+```bash
+python scripts/analyze_reference.py
+python scripts/plot_chromosome_coverage.py
+python scripts/plot_raw_vs_trimmed_coverage.py
+```
+
+The remaining analysis scripts require their corresponding intermediate BAM, TSV, or annotated VCF files to have been generated first. Their input paths are currently predefined in the scripts.
+
+### Workflow overview
+
+1. Retrieve paired-end sequencing reads from SRA.
+2. Assess raw read quality using FastQC and MultiQC.
+3. Perform adapter trimming and read filtering using fastp.
+4. Assess post-trimming read quality.
+5. Align raw and trimmed reads independently against the S288C reference using Bowtie2.
+6. Process, sort, index, and mark duplicates in BAM files using SAMtools.
+7. Calculate alignment statistics and chromosome-level coverage.
+8. Call variants using BCFtools and normalize and compare the resulting variant records.
+9. Annotate variants using the reference genome and NCBI GFF3 annotation.
+10. Compare variant consequences and investigate selected discordant and repeat-associated candidates.
+
+For complete reproduction, the reference files, intermediate results, directory structure, and software versions must match the analysis requirements. The GitHub repository provides selected scripts, reports, and summary outputs rather than all intermediate data.
 
 ## Limitations
 
